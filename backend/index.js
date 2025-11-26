@@ -33,6 +33,13 @@ function buildHeaders() {
 
 // === CabinetAPI: フォルダ一覧を取得 ===
 app.get("/folders", async (req, res) => {
+  
+    // ← ここが /folders のルート内「前の最初」
+  // 環境変数の確認ログ
+  console.log('SERVICE_SECRET:', SERVICE_SECRET ? 'SET' : 'MISSING');
+  console.log('LICENSE_KEY:', LICENSE_KEY ? 'SET' : 'MISSING');
+  console.log('SHOP_URL:', SHOP_URL ? SHOP_URL : 'MISSING');
+  
   const url = `https://api.rms.rakuten.co.jp/es/2.0/cabinet/folders/get`;
 
   console.log("DEBUG: SERVICE_SECRET:", SERVICE_SECRET ? "SET" : "MISSING");
