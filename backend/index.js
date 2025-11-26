@@ -10,46 +10,53 @@ app.get("/api/test", (req, res) => {
   res.json({ message: "API OK" });
 });
 
-// 認証情報（Render の Environment Variables）
-const SERVICE_SECRET = process.env.RMS_SERVICE_SECRET;
-const LICENSE_KEY = process.env.RMS_LICENSE_KEY;
-const SHOP_URL = process.env.RMS_SHOP_URL; // shop.r10s.jp/xxxxxx
+// 環境変数
+let SERVICE_SECRET = process.env.RMS_SERVICE_SECRET;
+let LICENSE_KEY = process.env.RMS_LICENSE_KEY;
+let SHOP_URL = process.env.RMS_SHOP_URL;
 
-// RMS API: Signature生成関数
+// SHOP_URL に末尾スラッシュを付与
+if (SHOP_URL && !SHOP_URL.endsWith("/")) {
+  SHOP_URL += "/";
+}
+
+// 署名生成関数
 function generateSignature(secret, licenseKey, timestamp) {
+  if (!secret || !licenseKey) return null;
   const text = `${licenseKey}:${timestamp}`;
   return crypto.createHmac("sha256", secret).update(text).digest("hex");
 }
 
-// RMS API: 共通ヘッダー（APPLICATION_ID不要版）
+// ヘッダー作成
 function buildHeaders() {
   const timestamp = new Date().toISOString();
   const signature = generateSignature(SERVICE_SECRET, LICENSE_KEY, timestamp);
 
-  console.log("DEBUG: Timestamp:", timestamp);
-  console.log("DEBUG: Signature:", signature);
-
   return {
     "Content-Type": "application/json",
-    "Authorization": `ESA ${signature}`,
+    "Authorization": signature ? `ESA ${signature}` : "",
     "X-RMS-Timestamp": timestamp
   };
 }
 
-// === CabinetAPI: フォルダ一覧を取得 ===
-app.get("/folders", async (req, res) => {
-  
-    // ← ここが /folders のルート内「前の最初」
-  // 環境変数の確認ログ
-  console.log('SERVICE_SECRET:', SERVICE_SECRET ? 'SET' : 'MISSING');
-  console.log('LICENSE_KEY:', LICENSE_KEY ? 'SET' : 'MISSING');
-  console.log('SHOP_URL:', SHOP_URL ? SHOP_URL : 'MISSING');
-  
-  const url = `https://api.rms.rakuten.co.jp/es/2.0/cabinet/folders/get`;
+// テスト用ルート
+app.get("/api/test", (req, res) => {
+  res.json({ message: "API OK" });
+});
 
-  console.log("DEBUG: SERVICE_SECRET:", SERVICE_SECRET ? "SET" : "MISSING");
-  console.log("DEBUG: LICENSE_KEY:", LICENSE_KEY ? "SET" : "MISSING");
-  console.log("DEBUG: SHOP_URL:", SHOP_URL ? SHOP_URL : "MISSING");
+// Cabinet フォルダ取得
+app.get("/folders", async (req, res) => {
+  // 環境変数チェック
+  if (!SERVICE_SECRET || !LICENSE_KEY || !SHOP_URL) {
+    return res.status(500).json({
+      error: "Environment variables not set",
+      SERVICE_SECRET: SERVICE_SECRET ? "SET" : "MISSING",
+      LICENSE_KEY: LICENSE_KEY ? "SET" : "MISSING",
+      SHOP_URL: SHOP_URL ? SHOP_URL : "MISSING"
+    });
+  }
+
+  const url = "https://api.rms.rakuten.co.jp/es/2.0/cabinet/folders/get";
 
   try {
     const response = await fetch(url, {
@@ -58,23 +65,24 @@ app.get("/folders", async (req, res) => {
       body: JSON.stringify({ shopUrl: SHOP_URL })
     });
 
-    console.log("DEBUG: HTTP Status:", response.status);
-
     const text = await response.text();
-    console.log("DEBUG: Response Text:", text);
 
-    // JSON に変換できれば返す
+    // JSON 変換
     try {
       const data = JSON.parse(text);
       res.json(data);
-    } catch (jsonError) {
-      console.error("DEBUG: JSON parse error:", jsonError);
-      res.status(500).json({ error: "Invalid JSON response", raw: text });
+    } catch {
+      res.status(500).json({
+        error: "Invalid JSON response from RMS API",
+        raw: text
+      });
     }
 
   } catch (error) {
-    console.error("DEBUG: Cabinet folders fetch error:", error);
-    res.status(500).json({ error: "Error fetching folder list", details: error.message });
+    res.status(500).json({
+      error: "Error fetching folder list",
+      details: error.message
+    });
   }
 });
 
