@@ -2,6 +2,11 @@ import express from "express";
 import crypto from "crypto";
 import fetch from "node-fetch";
 
+// ここに後でバックアップ処理を追加します（ステップ2）
+app.get("/api/test", (req, res) => {
+  res.json({ message: "API OK" });
+});
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
