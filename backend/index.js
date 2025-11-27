@@ -1,23 +1,3 @@
-import express from "express";
-import crypto from "crypto";
-import fetch from "node-fetch";
-import xml2js from "xml2js";
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// ===== Environment Variables =====
-let SERVICE_SECRET = process.env.RMS_SERVICE_SECRET;
-let LICENSE_KEY = process.env.RMS_LICENSE_KEY;
-
-// Base64 認証トークン生成  (※ HMAC ではない)
-function generateESA() {
-  return Buffer.from(`${SERVICE_SECRET}:${LICENSE_KEY}`).toString("base64");
-}
-
-// ---- Test ----
-app.get("/api/test", (req, res) => res.json({ message: "API OK" }));
-
 // ---- Cabinet フォルダ一覧 ----
 app.get("/folders", async (req, res) => {
   if (!SERVICE_SECRET || !LICENSE_KEY) {
@@ -28,16 +8,24 @@ app.get("/folders", async (req, res) => {
     });
   }
 
-  // API 1.0 + GET + offset / limit クエリ方式
-  const url = "https://api.rms.rakuten.co.jp/es/1.0/cabinet/folders/get?offset=1&limit=100";
+  const url = "https://api.rms.rakuten.co.jp/es/1.0/cabinet/folders/get";
+
+  // offset / limit を POST XML の body で渡す
+  const requestXML = `
+    <cabinetFoldersGetRequest>
+      <offset>1</offset>
+      <limit>100</limit>
+    </cabinetFoldersGetRequest>
+  `.trim();
 
   try {
     const response = await fetch(url, {
-      method: "GET",
+      method: "POST",
       headers: {
         Authorization: `ESA ${generateESA()}`,
-        "Content-Type": "application/xml"
-      }
+        "Content-Type": "application/xml; charset=UTF-8"
+      },
+      body: requestXML
     });
 
     const rawXML = await response.text();
@@ -62,7 +50,3 @@ app.get("/folders", async (req, res) => {
     });
   }
 });
-
-// ---- Default ----
-app.get("/", (req, res) => res.send("RMS Cabinet Backup API is running"));
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
