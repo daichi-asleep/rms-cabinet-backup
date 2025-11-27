@@ -1,6 +1,7 @@
 import express from "express";
 import crypto from "crypto";
 import fetch from "node-fetch";
+import xml2js from "xml2js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,23 +10,9 @@ const PORT = process.env.PORT || 3000;
 let SERVICE_SECRET = process.env.RMS_SERVICE_SECRET;
 let LICENSE_KEY = process.env.RMS_LICENSE_KEY;
 
-// HMAC 署名
-function generateSignature(secret, licenseKey, timestamp) {
-  const text = `${licenseKey}:${timestamp}`;
-  return crypto.createHmac("sha256", secret).update(text).digest("hex");
-}
-
-// RMS API 共通ヘッダー
-function buildHeaders() {
-  const timestamp = new Date().toISOString();
-  const signature = generateSignature(SERVICE_SECRET, LICENSE_KEY, timestamp);
-
-  return {
-    "Content-Type": "application/json",
--   "Authorization": `ESA ${signature}`,
-+   "Authorization": `ESA ${LICENSE_KEY}:${signature}`,
-    "X-RMS-Timestamp": timestamp
-  };
+// Base64 認証トークン生成  (※ HMAC ではない)
+function generateESA() {
+  return Buffer.from(`${SERVICE_SECRET}:${LICENSE_KEY}`).toString("base64");
 }
 
 // ---- Test ----
@@ -41,30 +28,33 @@ app.get("/folders", async (req, res) => {
     });
   }
 
-  const url = "https://api.rms.rakuten.co.jp/es/2.0/cabinet/folders/get";
+  // API 1.0 + GET + offset / limit クエリ方式
+  const url = "https://api.rms.rakuten.co.jp/es/1.0/cabinet/folders/get?offset=1&limit=100";
 
   try {
     const response = await fetch(url, {
-  method: "POST",
-  headers: buildHeaders(),
-+ body: JSON.stringify({
-+   shopUrl: process.env.RMS_SHOP_URL   // ← 必須
-+ })
-});
+      method: "GET",
+      headers: {
+        Authorization: `ESA ${generateESA()}`,
+        "Content-Type": "application/xml"
+      }
+    });
 
+    const rawXML = await response.text();
 
-    const raw = await response.text();
-
+    // XML → JSON 変換
+    const parser = new xml2js.Parser({ explicitArray: false });
+    let json;
     try {
-      const json = JSON.parse(raw);
-      return res.json(json);
+      json = await parser.parseStringPromise(rawXML);
     } catch {
       return res.status(500).json({
-        error: "Invalid / non-JSON response from RMS API",
-        raw_response_preview: raw.substring(0, 500)
+        error: "XML parse error",
+        raw_response_preview: rawXML.substring(0, 500)
       });
     }
 
+    return res.json(json);
   } catch (e) {
     return res.status(500).json({
       error: "Fetch Failed",
@@ -75,5 +65,4 @@ app.get("/folders", async (req, res) => {
 
 // ---- Default ----
 app.get("/", (req, res) => res.send("RMS Cabinet Backup API is running"));
-
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
