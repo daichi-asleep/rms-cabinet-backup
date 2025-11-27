@@ -19,10 +19,12 @@ function generateSignature(secret, licenseKey, timestamp) {
 function buildHeaders() {
   const timestamp = new Date().toISOString();
   const signature = generateSignature(SERVICE_SECRET, LICENSE_KEY, timestamp);
+
   return {
     "Content-Type": "application/json",
-    "X-RMS-Timestamp": timestamp,
-    "Authorization": `ESA ${LICENSE_KEY}:${signature}`
+-   "Authorization": `ESA ${signature}`,
++   "Authorization": `ESA ${LICENSE_KEY}:${signature}`,
+    "X-RMS-Timestamp": timestamp
   };
 }
 
