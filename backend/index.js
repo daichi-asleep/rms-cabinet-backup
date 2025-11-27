@@ -22,7 +22,7 @@ function buildHeaders() {
   return {
     "Content-Type": "application/json",
     "X-RMS-Timestamp": timestamp,
-    "Authorization": `ESA ${signature}`
+    "Authorization": `ESA ${LICENSE_KEY}:${signature}`
   };
 }
 
