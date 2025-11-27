@@ -5,54 +5,49 @@ import fetch from "node-fetch";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ここに後でバックアップ処理を追加します（ステップ2）
-app.get("/api/test", (req, res) => {
-  res.json({ message: "API OK" });
-});
-
-// 環境変数
+// ===== Environment Variables (Render .env) =====
+// RMS_SERVICE_SECRET
+// RMS_LICENSE_KEY
+// RMS_SHOP_URL  → shop.r10s.jp/ショップID（末尾 / は自動付与）
 let SERVICE_SECRET = process.env.RMS_SERVICE_SECRET;
 let LICENSE_KEY = process.env.RMS_LICENSE_KEY;
 let SHOP_URL = process.env.RMS_SHOP_URL;
 
-// SHOP_URL に末尾スラッシュを付与
-if (SHOP_URL && !SHOP_URL.endsWith("/")) {
-  SHOP_URL += "/";
-}
+// SHOP_URL の末尾スラッシュ補正
+if (SHOP_URL && !SHOP_URL.endsWith("/")) SHOP_URL = SHOP_URL + "/";
 
-// 署名生成関数
+// 署名生成
 function generateSignature(secret, licenseKey, timestamp) {
-  if (!secret || !licenseKey) return null;
   const text = `${licenseKey}:${timestamp}`;
   return crypto.createHmac("sha256", secret).update(text).digest("hex");
 }
 
-// ヘッダー作成
+// RMS API 共通ヘッダ（APPLICATION_ID 不要版）
 function buildHeaders() {
   const timestamp = new Date().toISOString();
   const signature = generateSignature(SERVICE_SECRET, LICENSE_KEY, timestamp);
 
   return {
     "Content-Type": "application/json",
-    "Authorization": signature ? `ESA ${signature}` : "",
+    "Authorization": `ESA ${signature}`, // ← APPLICATION_ID 不要
     "X-RMS-Timestamp": timestamp
   };
 }
 
-// テスト用ルート
+// ---- Test Route ----
 app.get("/api/test", (req, res) => {
   res.json({ message: "API OK" });
 });
 
-// Cabinet フォルダ取得
+// ---- Cabinet フォルダ一覧 ----
 app.get("/folders", async (req, res) => {
-  // 環境変数チェック
+  // 必須チェック（早期 return）
   if (!SERVICE_SECRET || !LICENSE_KEY || !SHOP_URL) {
     return res.status(500).json({
-      error: "Environment variables not set",
-      SERVICE_SECRET: SERVICE_SECRET ? "SET" : "MISSING",
-      LICENSE_KEY: LICENSE_KEY ? "SET" : "MISSING",
-      SHOP_URL: SHOP_URL ? SHOP_URL : "MISSING"
+      error: "Missing Environment Variables",
+      RMS_SERVICE_SECRET: SERVICE_SECRET ? "SET" : "MISSING",
+      RMS_LICENSE_KEY: LICENSE_KEY ? "SET" : "MISSING",
+      RMS_SHOP_URL: SHOP_URL ? SHOP_URL : "MISSING"
     });
   }
 
@@ -65,28 +60,28 @@ app.get("/folders", async (req, res) => {
       body: JSON.stringify({ shopUrl: SHOP_URL })
     });
 
-    const text = await response.text();
+    const raw = await response.text();
 
-    // JSON 変換
+    // JSON 変換できる場合のみ成功扱い
     try {
-      const data = JSON.parse(text);
-      res.json(data);
+      const json = JSON.parse(raw);
+      return res.json(json);
     } catch {
-      res.status(500).json({
-        error: "Invalid JSON response from RMS API",
-        raw: text
+      return res.status(500).json({
+        error: "Invalid / non-JSON response from RMS API",
+        raw_response_preview: raw.substring(0, 500)
       });
     }
 
-  } catch (error) {
-    res.status(500).json({
-      error: "Error fetching folder list",
-      details: error.message
+  } catch (e) {
+    return res.status(500).json({
+      error: "Fetch Failed",
+      details: e.message
     });
   }
 });
 
-// 起動メッセージ
+// ---- Default Route ----
 app.get("/", (req, res) => {
   res.send("RMS Cabinet Backup API is running");
 });
