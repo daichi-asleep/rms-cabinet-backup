@@ -45,10 +45,13 @@ app.get("/folders", async (req, res) => {
 
   try {
     const response = await fetch(url, {
-      method: "POST",
-      headers: buildHeaders()
-      // Body 不要
-    });
+  method: "POST",
+  headers: buildHeaders(),
++ body: JSON.stringify({
++   shopUrl: process.env.RMS_SHOP_URL   // ← 必須
++ })
+});
+
 
     const raw = await response.text();
 
