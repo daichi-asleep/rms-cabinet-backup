@@ -5,49 +5,37 @@ import fetch from "node-fetch";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ===== Environment Variables (Render .env) =====
-// RMS_SERVICE_SECRET
-// RMS_LICENSE_KEY
-// RMS_SHOP_URL  → shop.r10s.jp/ショップID（末尾 / は自動付与）
+// ===== Environment Variables =====
 let SERVICE_SECRET = process.env.RMS_SERVICE_SECRET;
 let LICENSE_KEY = process.env.RMS_LICENSE_KEY;
-let SHOP_URL = process.env.RMS_SHOP_URL;
 
-// SHOP_URL の末尾スラッシュ補正
-if (SHOP_URL && !SHOP_URL.endsWith("/")) SHOP_URL = SHOP_URL + "/";
-
-// 署名生成
+// HMAC 署名
 function generateSignature(secret, licenseKey, timestamp) {
   const text = `${licenseKey}:${timestamp}`;
   return crypto.createHmac("sha256", secret).update(text).digest("hex");
 }
 
-// RMS API 共通ヘッダ（APPLICATION_ID 不要版）
+// RMS API 共通ヘッダー
 function buildHeaders() {
   const timestamp = new Date().toISOString();
   const signature = generateSignature(SERVICE_SECRET, LICENSE_KEY, timestamp);
-
   return {
     "Content-Type": "application/json",
-    "Authorization": `ESA ${signature}`, // ← APPLICATION_ID 不要
-    "X-RMS-Timestamp": timestamp
+    "X-RMS-Timestamp": timestamp,
+    "Authorization": `ESA ${signature}`
   };
 }
 
-// ---- Test Route ----
-app.get("/api/test", (req, res) => {
-  res.json({ message: "API OK" });
-});
+// ---- Test ----
+app.get("/api/test", (req, res) => res.json({ message: "API OK" }));
 
 // ---- Cabinet フォルダ一覧 ----
 app.get("/folders", async (req, res) => {
-  // 必須チェック（早期 return）
-  if (!SERVICE_SECRET || !LICENSE_KEY || !SHOP_URL) {
+  if (!SERVICE_SECRET || !LICENSE_KEY) {
     return res.status(500).json({
       error: "Missing Environment Variables",
       RMS_SERVICE_SECRET: SERVICE_SECRET ? "SET" : "MISSING",
-      RMS_LICENSE_KEY: LICENSE_KEY ? "SET" : "MISSING",
-      RMS_SHOP_URL: SHOP_URL ? SHOP_URL : "MISSING"
+      RMS_LICENSE_KEY: LICENSE_KEY ? "SET" : "MISSING"
     });
   }
 
@@ -56,13 +44,12 @@ app.get("/folders", async (req, res) => {
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: buildHeaders(),
-      body: JSON.stringify({ shopUrl: SHOP_URL })
+      headers: buildHeaders()
+      // Body 不要
     });
 
     const raw = await response.text();
 
-    // JSON 変換できる場合のみ成功扱い
     try {
       const json = JSON.parse(raw);
       return res.json(json);
@@ -81,11 +68,7 @@ app.get("/folders", async (req, res) => {
   }
 });
 
-// ---- Default Route ----
-app.get("/", (req, res) => {
-  res.send("RMS Cabinet Backup API is running");
-});
+// ---- Default ----
+app.get("/", (req, res) => res.send("RMS Cabinet Backup API is running"));
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
