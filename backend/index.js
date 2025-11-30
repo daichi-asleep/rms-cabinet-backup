@@ -1,7 +1,9 @@
-require('dotenv').config();
-const express = require('express');
-const xml2js = require('xml2js');
-const fetch = require('node-fetch'); // Node.js 17以下の場合
+import 'dotenv/config';
+import express from "express";
+import xml2js from "xml2js";
+import fetch from "node-fetch"; // node-fetch v3はESMのみ
+import JSZip from "jszip";
+
 const app = express();
 
 const SERVICE_SECRET = process.env.SERVICE_SECRET;
