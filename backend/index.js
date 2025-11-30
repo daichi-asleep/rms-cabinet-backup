@@ -6,6 +6,7 @@ import JSZip from "jszip";
 
 const app = express();
 app.use(express.json());
+app.use(express.static("public"));
 
 const SERVICE_SECRET = process.env.SERVICE_SECRET;
 const LICENSE_KEY = process.env.LICENSE_KEY;
