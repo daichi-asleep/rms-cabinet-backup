@@ -1,11 +1,7 @@
-{
-  "name": "rms-backup-backend",
-  "version": "1.0.0",
-  "main": "index.js",
-  "type": "module",
-  "dependencies": {
-    "express": "^4.19.0",
-    "node-fetch": "^3.3.2",
-    "jszip": "^3.10.1"
-  }
+"dependencies": {
+  "express": "^4.19.0",
+  "node-fetch": "^3.3.2",
+  "jszip": "^3.10.1",
+  "dotenv": "^16.4.5"
 }
+
