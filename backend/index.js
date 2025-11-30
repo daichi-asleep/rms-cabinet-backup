@@ -7,30 +7,32 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const app = express();
+app.use(express.json());
 
-// ESM で __dirname を使用可能に
+// ESM で __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// 静的ファイルのルート
-app.use(express.static(path.join(__dirname, "public")));
-
-app.use(express.json());
 
 const SERVICE_SECRET = process.env.SERVICE_SECRET;
 const LICENSE_KEY = process.env.LICENSE_KEY;
 
+// ESA 認証
 const getHeaders = () => ({
   "Authorization": `ESA ${Buffer.from(`${SERVICE_SECRET}:${LICENSE_KEY}`).toString("base64")}`
 });
 
+// ================= API =================
+
+// フォルダ一覧
 app.get("/api/folders", async (req, res) => {
   try {
     const offset = req.query.offset ?? 1;
     const limit = req.query.limit ?? 100;
     const url = `https://api.rms.rakuten.co.jp/es/1.0/cabinet/folders/get?offset=${offset}&limit=${limit}`;
+
     const xml = await fetch(url, { headers: getHeaders() }).then(r => r.text());
     const result = await xml2js.parseStringPromise(xml, { explicitArray: false });
+
     const folders = result.result.cabinetFoldersGetResult.folders.folder;
     res.json(folders);
   } catch (e) {
@@ -38,22 +40,23 @@ app.get("/api/folders", async (req, res) => {
   }
 });
 
+// ZIP 生成
 app.post("/api/zip", async (req, res) => {
   try {
     const { folderId } = req.body;
     if (!folderId) return res.status(400).json({ error: "folderId required" });
 
     const zip = new JSZip();
-    const folderPath = zip.folder(`folder_${folderId}`);
+    const saveFolder = zip.folder(`folder_${folderId}`);
 
     const url = `https://api.rms.rakuten.co.jp/es/1.0/cabinet/files/get?folderId=${folderId}`;
     const xml = await fetch(url, { headers: getHeaders() }).then(r => r.text());
-    const json = await xml2js.parseStringPromise(xml, { explicitArray: false }) ;
-    const images = json.result.cabinetFilesGetResult.files.file;
+    const json = await xml2js.parseStringPromise(xml, { explicitArray: false });
 
+    const images = json.result.cabinetFilesGetResult.files.file;
     for (const img of images) {
-      const buffer = await fetch(img.FileUrl).then(r => r.arrayBuffer());
-      folderPath.file(img.FileName, Buffer.from(buffer));
+      const fileBuffer = await fetch(img.FileUrl).then(r => r.arrayBuffer());
+      saveFolder.file(img.FileName, Buffer.from(fileBuffer));
     }
 
     const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
@@ -65,7 +68,10 @@ app.post("/api/zip", async (req, res) => {
   }
 });
 
-// 🔥 最後に catch-all: すべてのリクエストを index.html へ
+// =============== 静的ファイル ===============
+app.use(express.static(path.join(__dirname, "public")));
+
+// =============== catch-all ===============
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
