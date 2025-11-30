@@ -59,5 +59,13 @@ app.post("/api/zip", async (req, res) => {
   res.send(zipBuffer);
 });
 
-app.get("/", (req, res) => res.json({ status: "OK", message: "Server is running" }));
+// 🔽 "/" を静的ページ (public/index.html) に委ねるため削除 or コメントアウト
+// app.get("/", (req, res) => res.json({ status: "OK", message: "Server is running" }));
+
+// 🔽 存在しないルートはすべてフロントエンドへ
+app.get("*", (req, res) => {
+  res.sendFile(process.cwd() + "/public/index.html");
+});
+
 app.listen(3000, () => console.log("Server started on port 3000"));
+
