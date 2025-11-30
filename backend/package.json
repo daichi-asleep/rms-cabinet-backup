@@ -6,6 +6,8 @@
   "dependencies": {
     "express": "^4.19.0",
     "node-fetch": "^3.3.2",
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.1",
+    "dotenv": "^16.4.5",
+    "xml2js": "^0.6.2"
   }
 }
